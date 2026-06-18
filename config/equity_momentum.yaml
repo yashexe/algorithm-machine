@@ -1,0 +1,345 @@
+engine:
+  mode: "backtest"
+  run_id: null
+  log_level: "INFO"
+  log_dir: "logs"
+  output_dir: "results"
+  seed: 42
+
+universe:
+  symbols:
+    # Technology
+    - "AAPL"
+    - "MSFT"
+    - "NVDA"
+    - "GOOGL"
+    - "META"
+    - "AVGO"
+    - "ORCL"
+    - "CRM"
+    - "ADBE"
+    - "NOW"
+    - "INTC"
+    - "QCOM"
+    - "TXN"
+    - "IBM"
+    - "ACN"
+    - "MU"
+    - "AMD"
+    # Healthcare
+    - "UNH"
+    - "JNJ"
+    - "LLY"
+    - "MRK"
+    - "ABBV"
+    - "TMO"
+    - "ABT"
+    - "DHR"
+    - "ISRG"
+    - "BMY"
+    - "CVS"
+    - "MDT"
+    - "AMGN"
+    - "GILD"
+    - "REGN"
+    - "PFE"
+    - "ZTS"
+    - "SYK"
+    # Financials
+    - "JPM"
+    - "V"
+    - "MA"
+    - "BAC"
+    - "WFC"
+    - "GS"
+    - "MS"
+    - "C"
+    - "BLK"
+    - "AXP"
+    - "SCHW"
+    - "SPGI"
+    - "BK"
+    - "MET"
+    - "AIG"
+    - "USB"
+    - "BRK-B"
+    # Consumer Discretionary
+    - "AMZN"
+    - "TSLA"
+    - "HD"
+    - "MCD"
+    - "NKE"
+    - "SBUX"
+    - "LOW"
+    - "TGT"
+    - "BKNG"
+    - "F"
+    - "GM"
+    - "ORLY"
+    # Consumer Staples
+    - "WMT"
+    - "PG"
+    - "KO"
+    - "PEP"
+    - "COST"
+    - "PM"
+    - "MO"
+    - "MDLZ"
+    - "CL"
+    - "KHC"
+    # Industrials
+    - "CAT"
+    - "HON"
+    - "UPS"
+    - "DE"
+    - "LMT"
+    - "RTX"
+    - "GE"
+    - "BA"
+    - "MMM"
+    - "ETN"
+    - "FDX"
+    - "GD"
+    - "EMR"
+    - "NOC"
+    - "CSX"
+    # Energy
+    - "XOM"
+    - "CVX"
+    - "COP"
+    - "EOG"
+    - "OXY"
+    - "SLB"
+    - "PSX"
+    - "MPC"
+    - "VLO"
+    # Communication
+    - "NFLX"
+    - "DIS"
+    - "CMCSA"
+    - "T"
+    - "VZ"
+    - "TMUS"
+    - "CHTR"
+    # Utilities
+    - "NEE"
+    - "DUK"
+    - "SO"
+    - "D"
+    - "EXC"
+    - "AEP"
+    # Real Estate
+    - "AMT"
+    - "PLD"
+    - "CCI"
+    - "EQIX"
+    # Materials
+    - "LIN"
+    - "APD"
+    - "SHW"
+    - "NEM"
+    - "FCX"
+    # Regime symbol (not traded, used for market filter)
+    - "SPY"
+  benchmark: "SPY"
+
+data:
+  source: "yfinance"
+  adjusted: true
+  bar_type: "daily"
+  bar_close_utc_hour: 21
+  cache_dir: ".cache/bars"
+  cache_staleness_hours: 4
+  batch_size: 50
+
+backtest:
+  start_date: "2015-01-01"
+  end_date: "2024-12-31"
+  holdout_start: "2024-01-01"   # reserved for final evaluation — WFO stops at 2023-12-31
+  initial_cash: 100000.00
+  risk_free_rate: 0.05
+  audit_lookahead: false
+
+risk:
+  rules:
+    - rule: "MaxDrawdownRule"
+      max_drawdown_pct: 0.40            # last-resort safety valve; strategy CB at 20% is the primary control
+    - rule: "DailyOrderLimitRule"
+      max_orders_per_day: 60            # up to ~30 exits + 30 entries on rebalance day
+    - rule: "ShortSellingRule"          # long-only enforcement
+    - rule: "PositionSizeRule"
+      max_position_pct: 0.08            # max 8% per name → ~12 full positions per $100k
+    - rule: "SectorExposureRule"
+      max_sector_pct: 0.25              # max 25% in any single GICS sector
+    - rule: "CashSolvencyRule"
+      cash_buffer_pct: 0.01             # 1% buffer: absorbs next-open gap-up slippage
+    - rule: "ConcentrationRule"
+      max_open_positions: 25            # hard cap on simultaneous open positions
+
+execution:
+  broker: "PaperBroker"
+  fill_at: "next_open"
+  slippage_model: "fixed_pct"
+  slippage_pct: 0.0005
+  commission_model: "per_share"
+  commission_per_share: 0.005
+  min_commission: 1.00
+  max_participation_pct: 0.025
+
+strategies:
+  - id: "equity_momentum_v1"
+    class: "strategies.equity_momentum.EquityMomentumStrategy"
+    symbols:
+      # Technology
+      - "AAPL"
+      - "MSFT"
+      - "NVDA"
+      - "GOOGL"
+      - "META"
+      - "AVGO"
+      - "ORCL"
+      - "CRM"
+      - "ADBE"
+      - "NOW"
+      - "INTC"
+      - "QCOM"
+      - "TXN"
+      - "IBM"
+      - "ACN"
+      - "MU"
+      - "AMD"
+      # Healthcare
+      - "UNH"
+      - "JNJ"
+      - "LLY"
+      - "MRK"
+      - "ABBV"
+      - "TMO"
+      - "ABT"
+      - "DHR"
+      - "ISRG"
+      - "BMY"
+      - "CVS"
+      - "MDT"
+      - "AMGN"
+      - "GILD"
+      - "REGN"
+      - "PFE"
+      - "ZTS"
+      - "SYK"
+      # Financials
+      - "JPM"
+      - "V"
+      - "MA"
+      - "BAC"
+      - "WFC"
+      - "GS"
+      - "MS"
+      - "C"
+      - "BLK"
+      - "AXP"
+      - "SCHW"
+      - "SPGI"
+      - "BK"
+      - "MET"
+      - "AIG"
+      - "USB"
+      - "BRK-B"
+      # Consumer Discretionary
+      - "AMZN"
+      - "TSLA"
+      - "HD"
+      - "MCD"
+      - "NKE"
+      - "SBUX"
+      - "LOW"
+      - "TGT"
+      - "BKNG"
+      - "F"
+      - "GM"
+      - "ORLY"
+      # Consumer Staples
+      - "WMT"
+      - "PG"
+      - "KO"
+      - "PEP"
+      - "COST"
+      - "PM"
+      - "MO"
+      - "MDLZ"
+      - "CL"
+      - "KHC"
+      # Industrials
+      - "CAT"
+      - "HON"
+      - "UPS"
+      - "DE"
+      - "LMT"
+      - "RTX"
+      - "GE"
+      - "BA"
+      - "MMM"
+      - "ETN"
+      - "FDX"
+      - "GD"
+      - "EMR"
+      - "NOC"
+      - "CSX"
+      # Energy
+      - "XOM"
+      - "CVX"
+      - "COP"
+      - "EOG"
+      - "OXY"
+      - "SLB"
+      - "PSX"
+      - "MPC"
+      - "VLO"
+      # Communication
+      - "NFLX"
+      - "DIS"
+      - "CMCSA"
+      - "T"
+      - "VZ"
+      - "TMUS"
+      - "CHTR"
+      # Utilities
+      - "NEE"
+      - "DUK"
+      - "SO"
+      - "D"
+      - "EXC"
+      - "AEP"
+      # Real Estate
+      - "AMT"
+      - "PLD"
+      - "CCI"
+      - "EQIX"
+      # Materials
+      - "LIN"
+      - "APD"
+      - "SHW"
+      - "NEM"
+      - "FCX"
+      # Regime symbol — required for market filter, not traded
+      - "SPY"
+    params:
+      momentum_lookback: 252        # 12-month return window
+      skip_recent_days: 20          # skip last month to reduce reversal noise
+      min_lookback: 200             # min bars for a symbol to be ranked
+      top_n: 20                     # hold top 20 names
+      rank_exit_buffer: 5           # exit if rank falls below top 25
+      ma_period: 200                # 200-day MA for regime + per-stock exit
+      regime_symbol: "SPY"          # bear-market filter trigger
+      vol_target_pct: 0.003         # 0.3% daily vol contribution per position
+      min_volume_30d: 500000        # reject illiquid names (< 500k avg daily vol)
+      max_daily_move_pct: 0.15      # reject gap-risk names (any 30-day move > 15%)
+      rebalance_freq: "weekly"
+      initial_cash: 100000          # must match backtest.initial_cash for vol sizing
+      max_new_entries: 10           # turnover cap: max 10 new buys per rebalance
+      circuit_breaker_drawdown: 0.20  # liquidate all holdings if drawdown >= 20%
+
+wfo_grid:
+  vol_target_pct: [0.001, 0.002, 0.003, 0.005]
+  top_n: [10, 15, 20]
+  ma_period: [150, 200, 250]

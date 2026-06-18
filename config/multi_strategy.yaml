@@ -1,0 +1,386 @@
+##############################################################################
+#  algorithm-machine | multi_strategy.yaml
+#
+#  Two concurrent strategies running under a shared RiskGatekeeper:
+#
+#  1. equity_momentum_v1 — Cross-sectional momentum across large-cap equities
+#     (the primary strategy, using best in-sample parameters from WFO)
+#
+#  2. etf_mean_reversion_v1 — SPY/TLT z-score mean reversion
+#     (uncorrelated absolute-return strategy, long-only via BUY the cheap leg)
+#
+#  The RiskGatekeeper manages capital allocation between both strategies:
+#    - PositionSizeRule: caps any single name at 8% of equity
+#    - CashSolvencyRule: prevents both strategies from over-drawing cash
+#    - ConcentrationRule: limits total open positions
+#    - SectorExposureRule: prevents sector over-concentration from momentum
+#
+#  Conflict resolution (STRATEGY_INTERFACE.md §6):
+#    If both strategies emit BUY SPY simultaneously, the gatekeeper evaluates
+#    each intent against the same portfolio snapshot. The second intent will see
+#    the existing SPY position (from the first approval) in the snapshot and
+#    the PositionSizeRule will resize or reject it accordingly.
+#
+#  Adding TLT to the universe:
+#    TLT is added to universe.symbols so DataPipeline fetches its bar history.
+#    The equity_momentum strategy ignores TLT (it's not in its symbols list).
+##############################################################################
+
+engine:
+  mode: "backtest"
+  run_id: null
+  log_level: "INFO"
+  log_dir: "logs"
+  output_dir: "results"
+  seed: 42
+
+universe:
+  symbols:
+    # ── Mean reversion pair ──────────────────────────────────────────────
+    - "SPY"                        # regime filter + mean reversion leg A
+    - "TLT"                        # long-duration Treasury ETF, mean reversion leg B
+    # ── Technology ──────────────────────────────────────────────────────
+    - "AAPL"
+    - "MSFT"
+    - "NVDA"
+    - "GOOGL"
+    - "META"
+    - "AVGO"
+    - "ORCL"
+    - "CRM"
+    - "ADBE"
+    - "NOW"
+    - "INTC"
+    - "QCOM"
+    - "TXN"
+    - "IBM"
+    - "ACN"
+    - "MU"
+    - "AMD"
+    # ── Healthcare ──────────────────────────────────────────────────────
+    - "UNH"
+    - "JNJ"
+    - "LLY"
+    - "MRK"
+    - "ABBV"
+    - "TMO"
+    - "ABT"
+    - "DHR"
+    - "ISRG"
+    - "BMY"
+    - "CVS"
+    - "MDT"
+    - "AMGN"
+    - "GILD"
+    - "REGN"
+    - "PFE"
+    - "ZTS"
+    - "SYK"
+    # ── Financials ──────────────────────────────────────────────────────
+    - "JPM"
+    - "V"
+    - "MA"
+    - "BAC"
+    - "WFC"
+    - "GS"
+    - "MS"
+    - "C"
+    - "BLK"
+    - "AXP"
+    - "SCHW"
+    - "SPGI"
+    - "BK"
+    - "MET"
+    - "AIG"
+    - "USB"
+    - "BRK-B"
+    # ── Consumer Discretionary ───────────────────────────────────────────
+    - "AMZN"
+    - "TSLA"
+    - "HD"
+    - "MCD"
+    - "NKE"
+    - "SBUX"
+    - "LOW"
+    - "TGT"
+    - "BKNG"
+    - "F"
+    - "GM"
+    - "ORLY"
+    # ── Consumer Staples ─────────────────────────────────────────────────
+    - "WMT"
+    - "PG"
+    - "KO"
+    - "PEP"
+    - "COST"
+    - "PM"
+    - "MO"
+    - "MDLZ"
+    - "CL"
+    - "KHC"
+    # ── Industrials ──────────────────────────────────────────────────────
+    - "CAT"
+    - "HON"
+    - "UPS"
+    - "DE"
+    - "LMT"
+    - "RTX"
+    - "GE"
+    - "BA"
+    - "MMM"
+    - "ETN"
+    - "FDX"
+    - "GD"
+    - "EMR"
+    - "NOC"
+    - "CSX"
+    # ── Energy ───────────────────────────────────────────────────────────
+    - "XOM"
+    - "CVX"
+    - "COP"
+    - "EOG"
+    - "OXY"
+    - "SLB"
+    - "PSX"
+    - "MPC"
+    - "VLO"
+    # ── Communication ────────────────────────────────────────────────────
+    - "NFLX"
+    - "DIS"
+    - "CMCSA"
+    - "T"
+    - "VZ"
+    - "TMUS"
+    - "CHTR"
+    # ── Utilities ────────────────────────────────────────────────────────
+    - "NEE"
+    - "DUK"
+    - "SO"
+    - "D"
+    - "EXC"
+    - "AEP"
+    # ── Real Estate ──────────────────────────────────────────────────────
+    - "AMT"
+    - "PLD"
+    - "CCI"
+    - "EQIX"
+    # ── Materials ────────────────────────────────────────────────────────
+    - "LIN"
+    - "APD"
+    - "SHW"
+    - "NEM"
+    - "FCX"
+  benchmark: "SPY"
+
+data:
+  source: "yfinance"
+  adjusted: true
+  bar_type: "daily"
+  bar_close_utc_hour: 21
+  cache_dir: ".cache/bars"
+  cache_staleness_hours: 4
+  batch_size: 50
+
+backtest:
+  start_date: "2015-01-01"
+  end_date: "2024-12-31"
+  initial_cash: 100000.00
+  risk_free_rate: 0.05
+  audit_lookahead: false
+
+risk:
+  rules:
+    # Safety brake first — RISK_ENGINE.md §5 recommended ordering
+    - rule: "MaxDrawdownRule"
+      max_drawdown_pct: 0.40         # last-resort valve; strategy CBs fire at 20%
+
+    # Rate limit — catches bugs from both strategies simultaneously
+    - rule: "DailyOrderLimitRule"
+      max_orders_per_day: 70         # 30 exits + 30 entries (momentum) + 10 (mean rev)
+
+    # Long-only enforcement for both strategies
+    - rule: "ShortSellingRule"
+
+    # Position cap — applies to intents from BOTH strategies on the same symbol
+    # (e.g., both wanting to BUY SPY on the same bar)
+    - rule: "PositionSizeRule"
+      max_position_pct: 0.08         # max 8% per name
+
+    # Sector cap — prevents momentum from dominating one sector
+    - rule: "SectorExposureRule"
+      max_sector_pct: 0.25
+
+    # Cash solvency — ensures both strategies' pending buys fit within cash
+    - rule: "CashSolvencyRule"
+      cash_buffer_pct: 0.01
+
+    # Concentration — total open positions across both strategies
+    - rule: "ConcentrationRule"
+      max_open_positions: 27         # 25 momentum + 2 mean reversion legs
+
+execution:
+  broker: "PaperBroker"
+  fill_at: "next_open"
+  slippage_model: "fixed_pct"
+  slippage_pct: 0.0005
+  commission_model: "per_share"
+  commission_per_share: 0.005
+  min_commission: 1.00
+
+strategies:
+  # ── Strategy 1: Cross-sectional equity momentum ──────────────────────
+  - id: "equity_momentum_v1"
+    class: "strategies.equity_momentum.EquityMomentumStrategy"
+    symbols:
+      - "AAPL"
+      - "MSFT"
+      - "NVDA"
+      - "GOOGL"
+      - "META"
+      - "AVGO"
+      - "ORCL"
+      - "CRM"
+      - "ADBE"
+      - "NOW"
+      - "INTC"
+      - "QCOM"
+      - "TXN"
+      - "IBM"
+      - "ACN"
+      - "MU"
+      - "AMD"
+      - "UNH"
+      - "JNJ"
+      - "LLY"
+      - "MRK"
+      - "ABBV"
+      - "TMO"
+      - "ABT"
+      - "DHR"
+      - "ISRG"
+      - "BMY"
+      - "CVS"
+      - "MDT"
+      - "AMGN"
+      - "GILD"
+      - "REGN"
+      - "PFE"
+      - "ZTS"
+      - "SYK"
+      - "JPM"
+      - "V"
+      - "MA"
+      - "BAC"
+      - "WFC"
+      - "GS"
+      - "MS"
+      - "C"
+      - "BLK"
+      - "AXP"
+      - "SCHW"
+      - "SPGI"
+      - "BK"
+      - "MET"
+      - "AIG"
+      - "USB"
+      - "BRK-B"
+      - "AMZN"
+      - "TSLA"
+      - "HD"
+      - "MCD"
+      - "NKE"
+      - "SBUX"
+      - "LOW"
+      - "TGT"
+      - "BKNG"
+      - "F"
+      - "GM"
+      - "ORLY"
+      - "WMT"
+      - "PG"
+      - "KO"
+      - "PEP"
+      - "COST"
+      - "PM"
+      - "MO"
+      - "MDLZ"
+      - "CL"
+      - "KHC"
+      - "CAT"
+      - "HON"
+      - "UPS"
+      - "DE"
+      - "LMT"
+      - "RTX"
+      - "GE"
+      - "BA"
+      - "MMM"
+      - "ETN"
+      - "FDX"
+      - "GD"
+      - "EMR"
+      - "NOC"
+      - "CSX"
+      - "XOM"
+      - "CVX"
+      - "COP"
+      - "EOG"
+      - "OXY"
+      - "SLB"
+      - "PSX"
+      - "MPC"
+      - "VLO"
+      - "NFLX"
+      - "DIS"
+      - "CMCSA"
+      - "T"
+      - "VZ"
+      - "TMUS"
+      - "CHTR"
+      - "NEE"
+      - "DUK"
+      - "SO"
+      - "D"
+      - "EXC"
+      - "AEP"
+      - "AMT"
+      - "PLD"
+      - "CCI"
+      - "EQIX"
+      - "LIN"
+      - "APD"
+      - "SHW"
+      - "NEM"
+      - "FCX"
+      - "SPY"                        # regime filter symbol — not traded
+    params:
+      momentum_lookback: 252
+      skip_recent_days: 20
+      min_lookback: 200
+      top_n: 20
+      rank_exit_buffer: 5
+      ma_period: 200
+      regime_symbol: "SPY"
+      vol_target_pct: 0.003          # best from prior full-period backtest
+      min_volume_30d: 500000
+      max_daily_move_pct: 0.15
+      rebalance_freq: "weekly"
+      initial_cash: 100000
+      max_new_entries: 10
+      circuit_breaker_drawdown: 0.20
+
+  # ── Strategy 2: ETF Mean Reversion (SPY / TLT) ───────────────────────
+  - id: "etf_mean_reversion_v1"
+    class: "strategies.etf_mean_reversion.EtfMeanReversionStrategy"
+    symbols:
+      - "SPY"
+      - "TLT"
+    params:
+      symbol_a: "SPY"
+      symbol_b: "TLT"
+      lookback_days: 60              # 60-day rolling z-score window
+      entry_z: 1.5                   # enter at 1.5 standard deviations
+      exit_z: 0.5                    # exit when reversion reaches 0.5 sigma
+      quantity_pct: 0.15             # target 15% of portfolio per leg
+      initial_cash: 100000           # must match backtest.initial_cash
+      min_vol: 0.001                 # skip if spread is too quiet

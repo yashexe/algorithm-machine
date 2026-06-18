@@ -1,0 +1,32 @@
+# Virtual environment
+.venv/
+
+# Caches
+.cache/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Build / packaging
+dist/
+*.egg-info/
+.eggs/
+
+# Runtime output
+logs/
+results/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Scratch / generated
+python_files_dump.txt
+
+# Hypothesis database
+.hypothesis/
+
+# Claude Code session data
+.claude/

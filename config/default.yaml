@@ -1,0 +1,69 @@
+engine:
+  mode: "backtest"
+  run_id: null
+  log_level: "INFO"
+  log_dir: "logs"
+  output_dir: "results"
+  seed: 42
+
+universe:
+  symbols:
+    - "SPY"
+    - "QQQ"
+    - "IWM"
+    - "GLD"
+    - "TLT"
+    - "IEF"
+  benchmark: "SPY"
+
+data:
+  source: "yfinance"
+  adjusted: true
+  bar_type: "daily"
+  bar_close_utc_hour: 21
+  cache_dir: ".cache/bars"
+  cache_staleness_hours: 4
+  batch_size: 50
+
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2024-12-31"
+  initial_cash: 100000.00
+  risk_free_rate: 0.05
+  audit_lookahead: false
+
+risk:
+  rules:
+    - rule: "MaxDrawdownRule"
+      max_drawdown_pct: 0.15
+    - rule: "DailyOrderLimitRule"
+      max_orders_per_day: 10
+    - rule: "ShortSellingRule"
+    - rule: "PositionSizeRule"
+      max_position_pct: 0.20
+    - rule: "CashSolvencyRule"
+    - rule: "ConcentrationRule"
+      max_open_positions: 10
+
+execution:
+  broker: "PaperBroker"
+  fill_at: "next_open"
+  slippage_model: "fixed_pct"
+  slippage_pct: 0.0005
+  commission_model: "per_share"
+  commission_per_share: 0.005
+  min_commission: 1.00
+
+strategies:
+  - id: "etf_momentum_v1"
+    class: "strategies.etf_momentum.EtfMomentumStrategy"
+    symbols:
+      - "SPY"
+      - "QQQ"
+      - "IWM"
+      - "GLD"
+      - "TLT"
+      - "IEF"
+    params:
+      lookback_days: 63
+      quantity: 200

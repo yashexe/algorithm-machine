@@ -1,0 +1,349 @@
+engine:
+  mode: "backtest"
+  run_id: null
+  log_level: "INFO"
+  log_dir: "logs"
+  output_dir: "results"
+  seed: 42
+
+universe:
+  symbols:
+    # Technology
+    - "AAPL"
+    - "MSFT"
+    - "NVDA"
+    - "GOOGL"
+    - "META"
+    - "AVGO"
+    - "ORCL"
+    - "CRM"
+    - "ADBE"
+    - "NOW"
+    - "INTC"
+    - "QCOM"
+    - "TXN"
+    - "IBM"
+    - "ACN"
+    - "MU"
+    - "AMD"
+    # Healthcare
+    - "UNH"
+    - "JNJ"
+    - "LLY"
+    - "MRK"
+    - "ABBV"
+    - "TMO"
+    - "ABT"
+    - "DHR"
+    - "ISRG"
+    - "BMY"
+    - "CVS"
+    - "MDT"
+    - "AMGN"
+    - "GILD"
+    - "REGN"
+    - "PFE"
+    - "ZTS"
+    - "SYK"
+    # Financials
+    - "JPM"
+    - "V"
+    - "MA"
+    - "BAC"
+    - "WFC"
+    - "GS"
+    - "MS"
+    - "C"
+    - "BLK"
+    - "AXP"
+    - "SCHW"
+    - "SPGI"
+    - "BK"
+    - "MET"
+    - "AIG"
+    - "USB"
+    - "BRK-B"
+    # Consumer Discretionary
+    - "AMZN"
+    - "TSLA"
+    - "HD"
+    - "MCD"
+    - "NKE"
+    - "SBUX"
+    - "LOW"
+    - "TGT"
+    - "BKNG"
+    - "F"
+    - "GM"
+    - "ORLY"
+    # Consumer Staples
+    - "WMT"
+    - "PG"
+    - "KO"
+    - "PEP"
+    - "COST"
+    - "PM"
+    - "MO"
+    - "MDLZ"
+    - "CL"
+    - "KHC"
+    # Industrials
+    - "CAT"
+    - "HON"
+    - "UPS"
+    - "DE"
+    - "LMT"
+    - "RTX"
+    - "GE"
+    - "BA"
+    - "MMM"
+    - "ETN"
+    - "FDX"
+    - "GD"
+    - "EMR"
+    - "NOC"
+    - "CSX"
+    # Energy
+    - "XOM"
+    - "CVX"
+    - "COP"
+    - "EOG"
+    - "OXY"
+    - "SLB"
+    - "PSX"
+    - "MPC"
+    - "VLO"
+    # Communication
+    - "NFLX"
+    - "DIS"
+    - "CMCSA"
+    - "T"
+    - "VZ"
+    - "TMUS"
+    - "CHTR"
+    # Utilities
+    - "NEE"
+    - "DUK"
+    - "SO"
+    - "D"
+    - "EXC"
+    - "AEP"
+    # Real Estate
+    - "AMT"
+    - "PLD"
+    - "CCI"
+    - "EQIX"
+    # Materials
+    - "LIN"
+    - "APD"
+    - "SHW"
+    - "NEM"
+    - "FCX"
+    # Regime symbol (not traded, used for market filter)
+    - "SPY"
+  benchmark: "SPY"
+
+data:
+  source: "yfinance"
+  adjusted: true
+  bar_type: "daily"
+  bar_close_utc_hour: 21
+  cache_dir: ".cache/bars"
+  cache_staleness_hours: 4
+  batch_size: 50
+
+backtest:
+  start_date: "2015-01-01"
+  end_date: "2024-12-31"
+  holdout_start: "2024-01-01"
+  initial_cash: 100000.00
+  risk_free_rate: 0.05
+  audit_lookahead: false
+
+risk:
+  rules:
+    - rule: "MaxDrawdownRule"
+      max_drawdown_pct: 0.40
+    - rule: "DailyOrderLimitRule"
+      max_orders_per_day: 40         # 10 entries + up to 10 exits + buffer
+    - rule: "ShortSellingRule"
+    - rule: "PositionSizeRule"
+      max_position_pct: 0.15         # hard cap; strategy targets 10% per position
+    - rule: "CashSolvencyRule"
+      cash_buffer_pct: 0.01
+    - rule: "ConcentrationRule"
+      max_open_positions: 10
+
+execution:
+  broker: "PaperBroker"
+  fill_at: "next_open"
+  slippage_model: "fixed_pct"
+  slippage_pct: 0.0005
+  commission_model: "per_share"
+  commission_per_share: 0.005
+  min_commission: 1.00
+  max_participation_pct: 0.025
+
+strategies:
+  - id: "equity_pullback_swing_v1"
+    class: "strategies.equity_pullback_swing.EquityPullbackSwingStrategy"
+    symbols:
+      # Technology
+      - "AAPL"
+      - "MSFT"
+      - "NVDA"
+      - "GOOGL"
+      - "META"
+      - "AVGO"
+      - "ORCL"
+      - "CRM"
+      - "ADBE"
+      - "NOW"
+      - "INTC"
+      - "QCOM"
+      - "TXN"
+      - "IBM"
+      - "ACN"
+      - "MU"
+      - "AMD"
+      # Healthcare
+      - "UNH"
+      - "JNJ"
+      - "LLY"
+      - "MRK"
+      - "ABBV"
+      - "TMO"
+      - "ABT"
+      - "DHR"
+      - "ISRG"
+      - "BMY"
+      - "CVS"
+      - "MDT"
+      - "AMGN"
+      - "GILD"
+      - "REGN"
+      - "PFE"
+      - "ZTS"
+      - "SYK"
+      # Financials
+      - "JPM"
+      - "V"
+      - "MA"
+      - "BAC"
+      - "WFC"
+      - "GS"
+      - "MS"
+      - "C"
+      - "BLK"
+      - "AXP"
+      - "SCHW"
+      - "SPGI"
+      - "BK"
+      - "MET"
+      - "AIG"
+      - "USB"
+      - "BRK-B"
+      # Consumer Discretionary
+      - "AMZN"
+      - "TSLA"
+      - "HD"
+      - "MCD"
+      - "NKE"
+      - "SBUX"
+      - "LOW"
+      - "TGT"
+      - "BKNG"
+      - "F"
+      - "GM"
+      - "ORLY"
+      # Consumer Staples
+      - "WMT"
+      - "PG"
+      - "KO"
+      - "PEP"
+      - "COST"
+      - "PM"
+      - "MO"
+      - "MDLZ"
+      - "CL"
+      - "KHC"
+      # Industrials
+      - "CAT"
+      - "HON"
+      - "UPS"
+      - "DE"
+      - "LMT"
+      - "RTX"
+      - "GE"
+      - "BA"
+      - "MMM"
+      - "ETN"
+      - "FDX"
+      - "GD"
+      - "EMR"
+      - "NOC"
+      - "CSX"
+      # Energy
+      - "XOM"
+      - "CVX"
+      - "COP"
+      - "EOG"
+      - "OXY"
+      - "SLB"
+      - "PSX"
+      - "MPC"
+      - "VLO"
+      # Communication
+      - "NFLX"
+      - "DIS"
+      - "CMCSA"
+      - "T"
+      - "VZ"
+      - "TMUS"
+      - "CHTR"
+      # Utilities
+      - "NEE"
+      - "DUK"
+      - "SO"
+      - "D"
+      - "EXC"
+      - "AEP"
+      # Real Estate
+      - "AMT"
+      - "PLD"
+      - "CCI"
+      - "EQIX"
+      # Materials
+      - "LIN"
+      - "APD"
+      - "SHW"
+      - "NEM"
+      - "FCX"
+      # Regime symbol — required for market filter, not traded
+      - "SPY"
+    params:
+      regime_symbol: "SPY"
+      regime_ma_period: 200
+      trend_ma_period: 50
+      rs_lookback_days: 63
+      rsi_period: 5
+      entry_rsi: 35.0
+      exit_rsi: 60.0
+      max_hold_bars: 30
+      stop_loss_pct: 0.05
+      take_profit_pct: 0.15
+      trail_activation_pct: 0.05
+      trail_ma_period: 20
+      position_pct: 0.10
+      initial_cash: 100000
+      max_open_positions: 10
+      max_new_entries_per_day: 5
+      min_volume_20d: 1000000
+
+wfo_grid:
+  entry_rsi: [25.0, 30.0, 35.0]
+  exit_rsi: [55.0, 60.0, 65.0]
+  max_hold_bars: [20, 30]
+  trail_ma_period: [15, 20]
+  trail_activation_pct: [0.03, 0.05]
+  position_pct: [0.08, 0.10, 0.12]
